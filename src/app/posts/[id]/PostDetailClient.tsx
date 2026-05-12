@@ -75,12 +75,18 @@ export default function PostDetailClient({ post }: PostDetailClientProps) {
     }
   }
 
-  async function handleReply(parentId: string | null, content: string, tripcode: string) {
+  async function handleReply(parentId: string | null, content: string, tripcode: string, captchaToken: string) {
     try {
       const res = await fetch("/api/comments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId: post.id, parentId, content, tripcode }),
+        body: JSON.stringify({
+          postId: post.id,
+          parentId: parentId || undefined,
+          content,
+          tripcode: tripcode?.trim() || undefined,
+          captchaToken: captchaToken || undefined,
+        }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -99,10 +105,10 @@ export default function PostDetailClient({ post }: PostDetailClientProps) {
         }
         toast.success("تم نشر التعليق");
       } else {
-        toast.error(data.error || "حدث خطأ");
+        toast.error(data.error || "تعذر نشر التعليق. حاول مرة أخرى.");
       }
     } catch {
-      toast.error("حدث خطأ");
+      throw new Error("network");
     }
   }
 

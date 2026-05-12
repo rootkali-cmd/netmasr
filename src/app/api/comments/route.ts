@@ -5,6 +5,7 @@ import { createCommentSchema } from "@/lib/validation";
 import { generateAnonymousId, generateTripcode, hashIP } from "@/lib/utils";
 import { checkRateLimit, RATE_LIMITS, RATE_LIMIT_RESPONSE } from "@/lib/rate-limit";
 import { headers } from "next/headers";
+import { verifyTurnstile } from "@/lib/captcha";
 
 export async function POST(req: NextRequest) {
   const headersList = await headers();
@@ -18,12 +19,37 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const parsed = createCommentSchema.safeParse(body);
+    const normalized = {
+      content: typeof body.content === "string" ? body.content.trim() : null,
+      postId: typeof body.postId === "string" ? body.postId.trim() : null,
+      parentId: typeof body.parentId === "string" ? body.parentId.trim() || undefined : undefined,
+      tripcode: typeof body.tripcode === "string" ? body.tripcode.trim() || undefined : undefined,
+      captchaToken: typeof body.captchaToken === "string" ? body.captchaToken.trim() || undefined : undefined,
+    };
+
+    const parsed = createCommentSchema.safeParse(normalized);
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.errors[0].message }, { status: 400 });
+      const firstError = parsed.error.errors[0];
+      if (firstError.path.includes("content")) {
+        return NextResponse.json({ error: "التعليق لا يمكن أن يكون فارغًا." }, { status: 400 });
+      }
+      if (firstError.path.includes("postId")) {
+        return NextResponse.json({ error: "تعذر نشر التعليق. حاول مرة أخرى." }, { status: 400 });
+      }
+      return NextResponse.json({ error: "تعذر نشر التعليق. حاول مرة أخرى." }, { status: 400 });
     }
 
-    const { content, postId, parentId, tripcode } = parsed.data;
+    const { content, postId, parentId, tripcode, captchaToken } = parsed.data;
+
+    if (process.env.TURNSTILE_SECRET_KEY) {
+      if (!captchaToken) {
+        return NextResponse.json({ error: "فشل التحقق الأمني. حاول مرة أخرى." }, { status: 400 });
+      }
+      const turnstileValid = await verifyTurnstile(captchaToken, ip);
+      if (!turnstileValid) {
+        return NextResponse.json({ error: "فشل التحقق الأمني. حاول مرة أخرى." }, { status: 400 });
+      }
+    }
 
     const post = await prisma.post.findUnique({ where: { id: postId } });
     if (!post) {
@@ -60,6 +86,6 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch {
-    return NextResponse.json({ error: "حدث خطأ داخلي" }, { status: 500 });
+    return NextResponse.json({ error: "تعذر نشر التعليق. حاول مرة أخرى." }, { status: 500 });
   }
 }

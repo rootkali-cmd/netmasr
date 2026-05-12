@@ -11,7 +11,8 @@ export const createCommentSchema = z.object({
   content: z.string().min(1, "التعليق لا يمكن أن يكون فارغًا").max(5000, "التعليق طويل جدًا"),
   postId: z.string().min(1),
   parentId: z.string().optional(),
-  tripcode: z.string().max(100).optional().default(""),
+  tripcode: z.string().max(100).optional(),
+  captchaToken: z.string().optional(),
 });
 
 export const createUserPollSchema = z.object({

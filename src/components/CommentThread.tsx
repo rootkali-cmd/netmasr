@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { formatDate } from "@/lib/utils";
 import ReportButton from "./ReportButton";
+import TurnstileWidget from "./TurnstileWidget";
 import { useBannedWords } from "@/hooks/useBannedWords";
 import toast from "react-hot-toast";
 
@@ -22,14 +23,26 @@ interface CommentThreadProps {
   comments: Comment[];
   postId: string;
   isClosed: boolean;
-  onReply: (parentId: string | null, content: string, tripcode: string) => Promise<void>;
+  onReply: (parentId: string | null, content: string, tripcode: string, captchaToken: string) => Promise<void>;
 }
 
-function SingleComment({ comment, postId, isClosed, onReply, depth = 0 }: {
+function SingleComment({
+  comment,
+  postId,
+  isClosed,
+  onReply,
+  captchaToken,
+  onCaptchaChange,
+  captchaKey,
+  depth = 0,
+}: {
   comment: Comment;
   postId: string;
   isClosed: boolean;
-  onReply: (parentId: string | null, content: string, tripcode: string) => Promise<void>;
+  onReply: (parentId: string | null, content: string, tripcode: string, captchaToken: string) => Promise<void>;
+  captchaToken: string;
+  onCaptchaChange: (token: string) => void;
+  captchaKey: number;
   depth: number;
 }) {
   const [showReply, setShowReply] = useState(false);
@@ -39,6 +52,7 @@ function SingleComment({ comment, postId, isClosed, onReply, depth = 0 }: {
   const { highlight, hasBanned } = useBannedWords();
 
   const replyBanned = hasBanned(replyContent);
+  const captchaRequired = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
   async function handleReply() {
     if (!replyContent.trim()) return;
@@ -46,10 +60,20 @@ function SingleComment({ comment, postId, isClosed, onReply, depth = 0 }: {
       toast.error("يحتوي النص على كلمات ممنوعة. الرجاء إزالتها قبل النشر.");
       return;
     }
+    if (captchaRequired && !captchaToken) {
+      toast.error("يرجى إكمال التحقق الأمني");
+      return;
+    }
     setSubmitting(true);
-    await onReply(comment.id, replyContent, replyTripcode);
-    setReplyContent("");
-    setShowReply(false);
+    try {
+      await onReply(comment.id, replyContent, replyTripcode, captchaToken);
+      setReplyContent("");
+      setReplyTripcode("");
+      setShowReply(false);
+      onCaptchaChange("");
+    } catch {
+      onCaptchaChange("");
+    }
     setSubmitting(false);
   }
 
@@ -119,10 +143,19 @@ function SingleComment({ comment, postId, isClosed, onReply, depth = 0 }: {
                 className="input-field text-sm flex-1"
                 maxLength={100}
               />
-              <button onClick={handleReply} disabled={submitting || !replyContent.trim() || replyBanned} className="btn btn-primary btn-sm">
+              <button
+                onClick={handleReply}
+                disabled={submitting || !replyContent.trim() || replyBanned || (captchaRequired && !captchaToken)}
+                className="btn btn-primary btn-sm"
+              >
                 {submitting ? "..." : "رد"}
               </button>
             </div>
+            {captchaRequired && (
+              <div className="flex justify-center mt-3">
+                <TurnstileWidget key={captchaKey} onVerify={onCaptchaChange} />
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -134,6 +167,9 @@ function SingleComment({ comment, postId, isClosed, onReply, depth = 0 }: {
           postId={postId}
           isClosed={isClosed}
           onReply={onReply}
+          captchaToken={captchaToken}
+          onCaptchaChange={onCaptchaChange}
+          captchaKey={captchaKey}
           depth={depth + 1}
         />
       ))}
@@ -145,7 +181,10 @@ export default function CommentThread({ comments, postId, isClosed, onReply }: C
   const [newComment, setNewComment] = useState("");
   const [tripcode, setTripcode] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaKey, setCaptchaKey] = useState(0);
   const { highlight, hasBanned } = useBannedWords();
+  const captchaRequired = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
   const commentBanned = hasBanned(newComment);
   const topLevelComments = comments.filter((c) => !c.parentId);
@@ -156,9 +195,20 @@ export default function CommentThread({ comments, postId, isClosed, onReply }: C
       toast.error("يحتوي النص على كلمات ممنوعة. الرجاء إزالتها قبل النشر.");
       return;
     }
+    if (captchaRequired && !captchaToken) {
+      toast.error("يرجى إكمال التحقق الأمني");
+      return;
+    }
     setSubmitting(true);
-    await onReply(null, newComment, tripcode);
-    setNewComment("");
+    try {
+      await onReply(null, newComment, tripcode, captchaToken);
+      setNewComment("");
+      setTripcode("");
+      setCaptchaToken("");
+    } catch {
+      setCaptchaToken("");
+      setCaptchaKey((k) => k + 1);
+    }
     setSubmitting(false);
   }
 
@@ -190,10 +240,19 @@ export default function CommentThread({ comments, postId, isClosed, onReply }: C
               className="input-field text-sm flex-1"
               maxLength={100}
             />
-            <button onClick={handleNewComment} disabled={submitting || !newComment.trim() || commentBanned} className="btn btn-primary">
+            <button
+              onClick={handleNewComment}
+              disabled={submitting || !newComment.trim() || commentBanned || (captchaRequired && !captchaToken)}
+              className="btn btn-primary"
+            >
               {submitting ? "..." : "نشر تعليق"}
             </button>
           </div>
+          {captchaRequired && (
+            <div className="flex justify-center mt-3">
+              <TurnstileWidget key={captchaKey} onVerify={setCaptchaToken} />
+            </div>
+          )}
         </div>
       )}
 
@@ -216,6 +275,9 @@ export default function CommentThread({ comments, postId, isClosed, onReply }: C
             postId={postId}
             isClosed={isClosed}
             onReply={onReply}
+            captchaToken={captchaToken}
+            onCaptchaChange={setCaptchaToken}
+            captchaKey={captchaKey}
             depth={0}
           />
         ))}

@@ -13,6 +13,7 @@
     "db:seed": "npx tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "seed:categories": "npx tsx prisma/seed-categories.ts",
+    "admin:reset": "tsx prisma/reset-admin.ts",
     "setup": "prisma db push && npx tsx prisma/seed.ts"
   },
   "dependencies": {
