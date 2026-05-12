@@ -1,0 +1,229 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id            String         @id @default(cuid())
+  username      String         @unique
+  passwordHash  String
+  role          String         @default("owner")
+  totpSecret    String?
+  totpEnabled   Boolean        @default(false)
+  sessions      AdminSession[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model AdminSession {
+  id        String   @id @default(cuid())
+  adminId   String
+  admin     Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  sortOrder   Int       @default(0)
+  posts       Post[]
+  userPolls   UserPoll[]
+  createdAt   DateTime  @default(now())
+}
+
+model Post {
+  id                     String          @id @default(cuid())
+  title                  String
+  content                String
+  categoryId             String
+  category               Category        @relation(fields: [categoryId], references: [id])
+  anonymousId            String
+  tripcode               String?
+  status                 String          @default("approved")
+  isPinned               Boolean         @default(false)
+  isClosed               Boolean         @default(false)
+  isOfficial             Boolean         @default(false)
+  officialBadge          String?
+  upvotes                Int             @default(0)
+  downvotes              Int             @default(0)
+  viewCount              Int             @default(0)
+  ipHash                 String?
+  trendingScore          Float           @default(0)
+  isHiddenFromTrending   Boolean         @default(false)
+  manualBoost            Int             @default(0)
+  lastModerationScanAt   DateTime?
+  moderationStatus       String?
+  moderationReason       String?
+  comments               Comment[]
+  votes                  PostVote[]
+  reports                Report[]
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+}
+
+model Comment {
+  id                   String          @id @default(cuid())
+  postId               String
+  post                 Post            @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parentId             String?
+  parent               Comment?        @relation("CommentReplies", fields: [parentId], references: [id], onDelete: SetNull)
+  replies              Comment[]       @relation("CommentReplies")
+  content              String
+  anonymousId          String
+  tripcode             String?
+  upvotes              Int             @default(0)
+  downvotes            Int             @default(0)
+  ipHash               String?
+  status               String          @default("approved")
+  lastModerationScanAt DateTime?
+  moderationStatus     String?
+  moderationReason     String?
+  reports              Report[]
+  createdAt            DateTime        @default(now())
+}
+
+model PostVote {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  voteType  String
+  ipHash    String?
+  voterId   String
+  createdAt DateTime @default(now())
+
+  @@unique([postId, voterId])
+}
+
+model OfficialPoll {
+  id          String               @id @default(cuid())
+  title       String
+  description String?
+  options     OfficialPollOption[]
+  totalVotes  Int                  @default(0)
+  isPinned    Boolean              @default(false)
+  isActive    Boolean              @default(true)
+  imageUrl    String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+}
+
+model OfficialPollOption {
+  id      String        @id @default(cuid())
+  pollId  String
+  poll    OfficialPoll  @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  text    String
+  votes   Int           @default(0)
+  order   Int           @default(0)
+}
+
+model OfficialPollVote {
+  id        String   @id @default(cuid())
+  pollId    String
+  optionId  String
+  ipHash    String?
+  voterId   String
+  createdAt DateTime @default(now())
+
+  @@unique([pollId, voterId])
+}
+
+model UserPoll {
+  id                   String           @id @default(cuid())
+  question             String
+  description          String?
+  categoryId           String
+  category             Category         @relation(fields: [categoryId], references: [id])
+  options              UserPollOption[]
+  totalVotes           Int              @default(0)
+  anonymousId          String
+  tripcode             String?
+  status               String           @default("approved")
+  ipHash               String?
+  lastModerationScanAt DateTime?
+  moderationStatus     String?
+  moderationReason     String?
+  createdAt            DateTime         @default(now())
+}
+
+model UserPollOption {
+  id      String    @id @default(cuid())
+  pollId  String
+  poll    UserPoll  @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  text    String
+  votes   Int       @default(0)
+  order   Int       @default(0)
+}
+
+model UserPollVote {
+  id        String   @id @default(cuid())
+  pollId    String
+  optionId  String
+  ipHash    String?
+  voterId   String
+  createdAt DateTime @default(now())
+
+  @@unique([pollId, voterId])
+}
+
+model BannedWord {
+  id              String   @id @default(cuid())
+  term            String   @unique
+  normalizedTerm  String?
+  category        String   @default("OTHER")
+  action          String   @default("REVIEW")
+  matchType       String   @default("CONTAINS")
+  severity        String   @default("MEDIUM")
+  isActive        Boolean  @default(true)
+  detectionCount  Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model ModerationLog {
+  id            String   @id @default(cuid())
+  contentType   String
+  contentId     String
+  matchedTermId String?
+  matchedTerm   String?
+  actionTaken   String
+  scanType      String   @default("LIVE")
+  status        String?
+  createdAt     DateTime @default(now())
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  postId      String?
+  post        Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  commentId   String?
+  comment     Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  reason      String
+  reporterIp  String?
+  isResolved  Boolean  @default(false)
+  resolvedBy  String?
+  createdAt   DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  adminId   String?
+  action    String
+  details   String?
+  ip        String?
+  createdAt DateTime @default(now())
+}
+
+model SiteSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
