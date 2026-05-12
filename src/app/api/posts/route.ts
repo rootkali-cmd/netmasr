@@ -59,9 +59,11 @@ export async function POST(req: NextRequest) {
 
     const { title, content, categorySlug, tripcode } = parsed.data;
 
-    const category = await prisma.category.findUnique({ where: { slug: categorySlug } });
+    const category = await prisma.category.findFirst({
+      where: { slug: categorySlug, isActive: true },
+    });
     if (!category) {
-      return NextResponse.json({ error: "التصنيف غير موجود" }, { status: 400 });
+      return NextResponse.json({ error: "التصنيف غير موجود أو غير متاح." }, { status: 400 });
     }
 
     const moderationResult = await moderateContent(title + " " + content);

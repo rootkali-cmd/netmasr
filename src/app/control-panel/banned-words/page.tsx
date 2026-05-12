@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import toast from "react-hot-toast";
+import { ADMIN_PANEL_PATH } from "@/lib/admin-url";
 
 interface BannedWordItem {
   id: string;
@@ -34,7 +35,10 @@ export default function AdminBannedWordsPage() {
   async function fetchWords() {
     try {
       const res = await fetch("/api/admin/banned-words");
-      if (res.status === 401) { window.location.href = "/control-panel/login"; return; }
+      if (res.status === 401 || res.status === 404) {
+        window.location.href = `/${ADMIN_PANEL_PATH}/login`;
+        return;
+      }
       const data = await res.json();
       setWords(data.words || []);
     } catch { toast.error("حدث خطأ"); }

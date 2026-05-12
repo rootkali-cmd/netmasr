@@ -2,13 +2,14 @@ import { redirect } from "next/navigation";
 import { getAdminSession } from "@/lib/admin-auth";
 import AdminLayout from "@/components/AdminLayout";
 import { prisma } from "@/lib/prisma";
+import { ADMIN_PANEL_PATH } from "@/lib/admin-url";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
   const session = await getAdminSession();
   if (!session) {
-    redirect("/control-panel/login");
+    redirect(`/${ADMIN_PANEL_PATH}/login`);
   }
 
   const [totalPosts, pendingPosts, totalComments, totalPolls, totalReports, totalOfficialPolls] = await Promise.all([

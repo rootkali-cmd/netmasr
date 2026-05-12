@@ -33,6 +33,7 @@ model Category {
   name        String    @unique
   slug        String    @unique
   description String?
+  isActive    Boolean   @default(true)
   sortOrder   Int       @default(0)
   posts       Post[]
   userPolls   UserPoll[]

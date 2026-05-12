@@ -12,6 +12,7 @@
     "db:push": "prisma db push",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:studio": "prisma studio",
+    "seed:categories": "npx tsx prisma/seed-categories.ts",
     "setup": "prisma db push && npx tsx prisma/seed.ts"
   },
   "dependencies": {

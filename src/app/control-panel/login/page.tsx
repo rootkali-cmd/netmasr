@@ -3,17 +3,22 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import TurnstileWidget from "@/components/TurnstileWidget";
+import { ADMIN_PANEL_PATH } from "@/lib/admin-url";
+
+type Step = "credentials" | "totp";
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const [step, setStep] = useState<Step>("credentials");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [twoFARequired, setTwoFARequired] = useState(false);
-  const [twoFAToken, setTwoFAToken] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [totpToken, setTotpToken] = useState("");
   const [sessionToken, setSessionToken] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  async function handleLogin(e: React.FormEvent) {
+  async function handleCredentials(e: React.FormEvent) {
     e.preventDefault();
     if (!username || !password) {
       toast.error("الرجاء إدخال اسم المستخدم وكلمة المرور");
@@ -25,7 +30,7 @@ export default function AdminLoginPage() {
       const res = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, captchaToken }),
       });
 
       const data = await res.json();
@@ -33,13 +38,15 @@ export default function AdminLoginPage() {
       if (res.ok) {
         if (data.require2FA) {
           setSessionToken(data.sessionToken);
-          setTwoFARequired(true);
+          setStep("totp");
+          toast.success("الرجاء إدخال رمز التحقق الثنائي");
         } else {
           toast.success("تم تسجيل الدخول");
-          router.push("/control-panel/dashboard");
+          router.push(`/${ADMIN_PANEL_PATH}/dashboard`);
         }
       } else {
-        toast.error(data.error || "خطأ في تسجيل الدخول");
+        toast.error(data.error || "بيانات الدخول غير صحيحة.");
+        setCaptchaToken("");
       }
     } catch {
       toast.error("حدث خطأ");
@@ -47,9 +54,9 @@ export default function AdminLoginPage() {
     setLoading(false);
   }
 
-  async function handle2FA(e: React.FormEvent) {
+  async function handleTotp(e: React.FormEvent) {
     e.preventDefault();
-    if (twoFAToken.length !== 6) {
+    if (!totpToken || totpToken.length !== 6) {
       toast.error("الرمز يجب أن يكون 6 أرقام");
       return;
     }
@@ -59,14 +66,14 @@ export default function AdminLoginPage() {
       const res = await fetch("/api/admin/verify-2fa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: twoFAToken, sessionToken }),
+        body: JSON.stringify({ token: totpToken, sessionToken }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
         toast.success("تم التحقق");
-        router.push("/control-panel/dashboard");
+        router.push(`/${ADMIN_PANEL_PATH}/dashboard`);
       } else {
         toast.error(data.error || "رمز غير صالح");
       }
@@ -87,8 +94,8 @@ export default function AdminLoginPage() {
           <p className="text-sm text-gray-500 mt-1">NetMasr.org Control Panel</p>
         </div>
 
-        {!twoFARequired ? (
-          <form onSubmit={handleLogin} className="space-y-4">
+        {step === "credentials" ? (
+          <form onSubmit={handleCredentials} className="space-y-4">
             <div>
               <label className="label">اسم المستخدم</label>
               <input
@@ -110,12 +117,17 @@ export default function AdminLoginPage() {
                 placeholder="••••••••"
               />
             </div>
-            <button type="submit" disabled={loading} className="btn btn-primary w-full">
+            <TurnstileWidget onVerify={(token) => setCaptchaToken(token)} />
+            <button
+              type="submit"
+              disabled={loading || !captchaToken}
+              className="btn btn-primary w-full"
+            >
               {loading ? "..." : "تسجيل الدخول"}
             </button>
           </form>
         ) : (
-          <form onSubmit={handle2FA} className="space-y-4">
+          <form onSubmit={handleTotp} className="space-y-4">
             <div className="text-center text-sm text-gray-600 mb-4">
               الرجاء إدخال رمز التحقق الثنائي
             </div>
@@ -123,15 +135,15 @@ export default function AdminLoginPage() {
               <label className="label">رمز 2FA</label>
               <input
                 type="text"
-                value={twoFAToken}
-                onChange={(e) => setTwoFAToken(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                value={totpToken}
+                onChange={(e) => setTotpToken(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 className="input-field text-center text-2xl tracking-widest"
                 placeholder="000000"
                 maxLength={6}
                 autoFocus
               />
             </div>
-            <button type="submit" disabled={loading || twoFAToken.length !== 6} className="btn btn-primary w-full">
+            <button type="submit" disabled={loading || totpToken.length !== 6} className="btn btn-primary w-full">
               {loading ? "..." : "تحقق"}
             </button>
           </form>

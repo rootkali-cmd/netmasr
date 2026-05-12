@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import toast from "react-hot-toast";
+import { ADMIN_PANEL_PATH } from "@/lib/admin-url";
 
 interface AdminSession {
   admin: { username: string; role: string };
@@ -157,7 +158,7 @@ export default function SettingsClient({ session }: { session: AdminSession }) {
     try {
       await fetch("/api/admin/logout", { method: "POST" });
       toast.success("تم تسجيل الخروج");
-      window.location.href = "/control-panel/login";
+      window.location.href = `/${ADMIN_PANEL_PATH}/login`;
     } catch {
       toast.error("حدث خطأ");
     }

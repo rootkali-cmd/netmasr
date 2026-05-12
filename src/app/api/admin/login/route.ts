@@ -6,8 +6,20 @@ import { checkRateLimit, RATE_LIMITS, RATE_LIMIT_RESPONSE } from "@/lib/rate-lim
 import { headers } from "next/headers";
 import { setPending2FA } from "@/lib/pending-2fa";
 import crypto from "crypto";
+import { verifyTurnstile } from "@/lib/captcha";
+import { checkGate } from "@/lib/gate-check";
+
+const ADMIN_PANEL_PATH = process.env.ADMIN_PANEL_PATH || "control-panel";
+const ADMIN_GATE_SECRET = process.env.ADMIN_GATE_SECRET || "";
 
 export async function POST(req: NextRequest) {
+  if (ADMIN_GATE_SECRET) {
+    const gateValid = await checkGate();
+    if (!gateValid) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+  }
+
   const headersList = await headers();
   const ip = headersList.get("x-forwarded-for") || "unknown";
 
@@ -23,16 +35,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: parsed.error.errors[0].message }, { status: 400 });
     }
 
-    const { username, password } = parsed.data;
+    const { username, password, captchaToken } = parsed.data;
+
+    if (process.env.NODE_ENV === "production" || process.env.TURNSTILE_SECRET_KEY) {
+      const turnstileValid = await verifyTurnstile(captchaToken || "", ip);
+      if (!turnstileValid) {
+        return NextResponse.json({ error: "التحقق الأمني غير ناجح. يرجى المحاولة مرة أخرى." }, { status: 400 });
+      }
+    }
 
     const admin = await prisma.admin.findUnique({ where: { username } });
     if (!admin) {
-      return NextResponse.json({ error: "اسم المستخدم أو كلمة المرور غير صحيحة" }, { status: 401 });
+      await prisma.auditLog.create({
+        data: { adminId: "unknown", action: "login_failed", details: ` username: ${username}`, ip },
+      }).catch(() => {});
+      return NextResponse.json({ error: "بيانات الدخول غير صحيحة." }, { status: 401 });
     }
 
     const valid = await verifyPassword(password, admin.passwordHash);
     if (!valid) {
-      return NextResponse.json({ error: "اسم المستخدم أو كلمة المرور غير صحيحة" }, { status: 401 });
+      await prisma.auditLog.create({
+        data: { adminId: admin.id, action: "login_failed", ip },
+      });
+      return NextResponse.json({ error: "بيانات الدخول غير صحيحة." }, { status: 401 });
     }
 
     await prisma.auditLog.create({

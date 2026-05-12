@@ -24,14 +24,20 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { name, slug, description, sortOrder } = body;
+    const { name, slug, description, sortOrder, isActive } = body;
 
     if (!name || !slug) {
-      return NextResponse.json({ error: "Name and slug are required" }, { status: 400 });
+      return NextResponse.json({ error: "الاسم والرابط مطلوبان" }, { status: 400 });
     }
 
     const category = await prisma.category.create({
-      data: { name, slug, description: description || null, sortOrder: sortOrder || 0 },
+      data: {
+        name,
+        slug,
+        description: description || null,
+        sortOrder: sortOrder || 0,
+        isActive: isActive !== undefined ? isActive : true,
+      },
     });
 
     await prisma.auditLog.create({
@@ -44,7 +50,39 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(category);
   } catch {
-    return NextResponse.json({ error: "Error" }, { status: 500 });
+    return NextResponse.json({ error: "حدث خطأ" }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  const session = await getAdminSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const body = await req.json();
+    const { id, name, slug, description, sortOrder, isActive } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: "المعرف مطلوب" }, { status: 400 });
+    }
+
+    const updateData: Record<string, unknown> = {};
+    if (name !== undefined) updateData.name = name;
+    if (slug !== undefined) updateData.slug = slug;
+    if (description !== undefined) updateData.description = description;
+    if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
+    if (isActive !== undefined) updateData.isActive = isActive;
+
+    const category = await prisma.category.update({
+      where: { id },
+      data: updateData,
+    });
+
+    return NextResponse.json(category);
+  } catch {
+    return NextResponse.json({ error: "حدث خطأ" }, { status: 500 });
   }
 }
 
@@ -59,13 +97,13 @@ export async function DELETE(req: NextRequest) {
     const id = searchParams.get("id");
 
     if (!id) {
-      return NextResponse.json({ error: "ID is required" }, { status: 400 });
+      return NextResponse.json({ error: "المعرف مطلوب" }, { status: 400 });
     }
 
     await prisma.category.delete({ where: { id } });
 
     return NextResponse.json({ success: true });
   } catch {
-    return NextResponse.json({ error: "Error" }, { status: 500 });
+    return NextResponse.json({ error: "حدث خطأ" }, { status: 500 });
   }
 }

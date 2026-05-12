@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import toast from "react-hot-toast";
+import { ADMIN_PANEL_PATH } from "@/lib/admin-url";
 
 interface AdminSession {
   admin: { username: string; role: string };
@@ -34,8 +35,8 @@ export default function AdminPostsPage() {
   async function fetchPosts() {
     try {
       const res = await fetch("/api/admin/posts");
-      if (res.status === 401) {
-        window.location.href = "/control-panel/login";
+      if (res.status === 401 || res.status === 404) {
+        window.location.href = `/${ADMIN_PANEL_PATH}/login`;
         return;
       }
       const data = await res.json();
@@ -69,8 +70,6 @@ export default function AdminPostsPage() {
     return <div className="min-h-screen bg-gray-100 flex items-center justify-center">جاري التحميل...</div>;
   }
 
-  // We need to check session - for simplicity we'll render content
-  // In production, use proper session management
   return (
     <AdminLayout session={session || { admin: { username: "admin", role: "owner" } }}>
       <div className="flex items-center justify-between mb-6">

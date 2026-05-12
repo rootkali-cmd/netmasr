@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import toast from "react-hot-toast";
+import { ADMIN_PANEL_PATH } from "@/lib/admin-url";
 
 interface AdminSession { admin: { username: string; role: string } }
 
@@ -27,7 +28,7 @@ export default function AdminCommentsPage() {
   async function fetchComments() {
     try {
       const res = await fetch("/api/admin/comments");
-      if (res.status === 401) { window.location.href = "/control-panel/login"; return; }
+      if (res.status === 401 || res.status === 404) { window.location.href = `/${ADMIN_PANEL_PATH}/login`; return; }
       const data = await res.json();
       setComments(data.comments || []);
     } catch { toast.error("حدث خطأ"); }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import toast from "react-hot-toast";
+import { ADMIN_PANEL_PATH } from "@/lib/admin-url";
 
 interface PollOption { id: string; text: string; votes: number; order: number }
 interface OfficialPoll { id: string; title: string; description: string | null; totalVotes: number; isPinned: boolean; isActive: boolean; createdAt: string; options: PollOption[] }
@@ -22,7 +23,7 @@ export default function AdminPollsPage() {
   async function fetchPolls() {
     try {
       const res = await fetch("/api/admin/polls");
-      if (res.status === 401) { window.location.href = "/control-panel/login"; return; }
+      if (res.status === 401 || res.status === 404) { window.location.href = `/${ADMIN_PANEL_PATH}/login`; return; }
       const data = await res.json();
       setPolls(data.polls || []);
     } catch { toast.error("حدث خطأ"); }

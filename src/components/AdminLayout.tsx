@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useState } from "react";
+import { adminUrl } from "@/lib/admin-url";
 
 interface AdminSession {
   admin: { username: string; role: string };
@@ -14,20 +15,20 @@ export default function AdminLayout({ children, session }: { children: React.Rea
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const navItems = [
-    { label: "الرئيسية", href: "/control-panel/dashboard", icon: "📊" },
-    { label: "المشاركات", href: "/control-panel/posts", icon: "📝" },
-    { label: "التعليقات", href: "/control-panel/comments", icon: "💬" },
-    { label: "الاستفتاءات الرسمية", href: "/control-panel/polls", icon: "📋" },
-    { label: "البلاغات", href: "/control-panel/reports", icon: "🚩" },
-    { label: "الكلمات المحظورة", href: "/control-panel/banned-words", icon: "🔇" },
-    { label: "سجل المراجعة", href: "/control-panel/moderation-logs", icon: "📜" },
-    { label: "الأقسام", href: "/control-panel/categories", icon: "📁" },
-    { label: "الإعدادات", href: "/control-panel/settings", icon: "⚙️" },
+    { label: "الرئيسية", href: adminUrl("dashboard"), icon: "📊" },
+    { label: "المشاركات", href: adminUrl("posts"), icon: "📝" },
+    { label: "التعليقات", href: adminUrl("comments"), icon: "💬" },
+    { label: "الاستفتاءات الرسمية", href: adminUrl("polls"), icon: "📋" },
+    { label: "البلاغات", href: adminUrl("reports"), icon: "🚩" },
+    { label: "الكلمات المحظورة", href: adminUrl("banned-words"), icon: "🔇" },
+    { label: "سجل المراجعة", href: adminUrl("moderation-logs"), icon: "📜" },
+    { label: "الأقسام", href: adminUrl("categories"), icon: "📁" },
+    { label: "الإعدادات", href: adminUrl("settings"), icon: "⚙️" },
   ];
 
   async function handleLogout() {
     await fetch("/api/admin/logout", { method: "POST" });
-    router.push("/control-panel/login");
+    router.push(adminUrl("login"));
   }
 
   return (
@@ -43,7 +44,9 @@ export default function AdminLayout({ children, session }: { children: React.Rea
               key={item.href}
               href={item.href}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm mb-1 no-underline transition-colors ${
-                pathname === item.href ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-800"
+                pathname === item.href.replace(/^\/[^/]+/, "") || pathname.startsWith(item.href.replace(/^\/[^/]+/, ""))
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-300 hover:bg-gray-800"
               }`}
               onClick={() => setSidebarOpen(false)}
             >

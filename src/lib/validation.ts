@@ -38,6 +38,7 @@ export const createOfficialPollSchema = z.object({
 export const loginSchema = z.object({
   username: z.string().min(1, "اسم المستخدم مطلوب"),
   password: z.string().min(1, "كلمة المرور مطلوبة"),
+  captchaToken: z.string().optional().default(""),
 });
 
 export const verify2FASchema = z.object({

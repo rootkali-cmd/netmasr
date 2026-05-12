@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import toast from "react-hot-toast";
-import { CATEGORIES } from "@/lib/constants";
+import { ADMIN_PANEL_PATH } from "@/lib/admin-url";
 
 interface Category { id: string; name: string; slug: string; description: string | null; sortOrder: number; _count: { posts: number } }
 
@@ -16,7 +16,7 @@ export default function AdminCategoriesPage() {
   async function fetchCategories() {
     try {
       const res = await fetch("/api/admin/categories");
-      if (res.status === 401) { window.location.href = "/control-panel/login"; return; }
+      if (res.status === 401 || res.status === 404) { window.location.href = `/${ADMIN_PANEL_PATH}/login`; return; }
       const data = await res.json();
       setCategories(data.categories || []);
     } catch { toast.error("حدث خطأ"); }

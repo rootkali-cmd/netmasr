@@ -1,5 +1,5 @@
 User-agent: *
 Allow: /
+Disallow: /api/
 Disallow: /control-panel/
-Disallow: /api/admin/
 Sitemap: https://netmasr.org/sitemap.xml

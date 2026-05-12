@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import toast from "react-hot-toast";
+import { ADMIN_PANEL_PATH } from "@/lib/admin-url";
 
 interface Report {
   id: string;
@@ -25,7 +26,7 @@ export default function AdminReportsPage() {
   async function fetchReports() {
     try {
       const res = await fetch("/api/admin/reports");
-      if (res.status === 401) { window.location.href = "/control-panel/login"; return; }
+      if (res.status === 401 || res.status === 404) { window.location.href = `/${ADMIN_PANEL_PATH}/login`; return; }
       const data = await res.json();
       setReports(data.reports || []);
     } catch { toast.error("حدث خطأ"); }

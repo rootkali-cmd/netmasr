@@ -1,25 +1,55 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import TurnstileWidget from "@/components/TurnstileWidget";
-import { CATEGORIES } from "@/lib/constants";
 import { useBannedWords } from "@/hooks/useBannedWords";
 import toast from "react-hot-toast";
+
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+}
 
 export default function NewPostPage() {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [categoryId, setCategoryId] = useState("");
   const [categorySlug, setCategorySlug] = useState("");
   const [tripcode, setTripcode] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [captchaToken, setCaptchaToken] = useState("");
   const [captchaKey, setCaptchaKey] = useState(0);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [catsLoading, setCatsLoading] = useState(true);
+  const [catsError, setCatsError] = useState(false);
   const { highlight, hasBanned, loading: bannedLoading } = useBannedWords();
+
+  useEffect(() => {
+    fetch("/api/categories")
+      .then((r) => r.json())
+      .then((data: unknown) => {
+        const cats = data as Category[];
+        if (cats && cats.length > 0) {
+          setCategories(cats);
+        } else {
+          setCatsError(true);
+        }
+      })
+      .catch(() => setCatsError(true))
+      .finally(() => setCatsLoading(false));
+  }, []);
+
+  function handleCategoryChange(id: string) {
+    setCategoryId(id);
+    const cat = categories.find((c) => c.id === id);
+    setCategorySlug(cat?.slug || "");
+  }
 
   const titleBanned = hasBanned(title);
   const contentBanned = hasBanned(content);
@@ -41,7 +71,7 @@ export default function NewPostPage() {
       toast.error("المحتوى يجب أن يكون 10 أحرف على الأقل");
       return;
     }
-    if (!categorySlug) {
+    if (!categoryId) {
       toast.error("يجب اختيار تصنيف");
       return;
     }
@@ -103,18 +133,26 @@ export default function NewPostPage() {
 
             <div>
               <label className="label">التصنيف</label>
-              <select
-                value={categorySlug}
-                onChange={(e) => setCategorySlug(e.target.value)}
-                className="input-field"
-              >
-                <option value="">اختر تصنيفًا</option>
-                {CATEGORIES.map((cat) => (
-                  <option key={cat.slug} value={cat.slug}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
+              {catsLoading ? (
+                <div className="input-field text-gray-400">جاري تحميل التصنيفات...</div>
+              ) : catsError ? (
+                <div className="text-red-600 text-sm">تعذر تحميل التصنيفات. حاول مرة أخرى.</div>
+              ) : categories.length === 0 ? (
+                <div className="text-gray-500 text-sm">لا توجد تصنيفات متاحة حاليًا.</div>
+              ) : (
+                <select
+                  value={categoryId}
+                  onChange={(e) => handleCategoryChange(e.target.value)}
+                  className="input-field"
+                >
+                  <option value="">اختر تصنيفًا</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             <div>
@@ -169,7 +207,15 @@ export default function NewPostPage() {
 
             <button
               type="submit"
-              disabled={submitting || blocked || bannedLoading || (captchaRequired && !captchaToken)}
+              disabled={
+                submitting ||
+                blocked ||
+                bannedLoading ||
+                !categoryId ||
+                catsLoading ||
+                catsError ||
+                (captchaRequired && !captchaToken)
+              }
               className={`btn w-full ${blocked ? "bg-red-500 hover:bg-red-600" : "btn-primary"}`}
             >
               {submitting ? "جاري النشر..." : blocked ? "ممنوع النشر — يوجد كلمات ممنوعة" : "نشر الموضوع"}
